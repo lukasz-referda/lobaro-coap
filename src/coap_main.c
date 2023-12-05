@@ -362,32 +362,49 @@ CoAP_Result_t _rom CoAP_removeObserver(uint32_t transport_ctx) {
 CoAP_Result_t _rom CoAP_handleDisconnectEvt(uint32_t transport_ctx) {
 	CoAP_Observer_t *pObserver = NULL;
 	CoAP_Res_t *pRes = NULL;
+	CoAP_Interaction_t *pIA;
 	CoAP_Result_t res = CoAP_FindObserverAndResourceByTransportCtx(transport_ctx,
-																   &pObserver,
-																   &pRes);
+																	&pObserver,
+																	&pRes);
 	if (res != COAP_OK) {
-		return res;
+		goto FINISH;
 	}
-
 	/* Notify resource about unlinking of the observer. */
 	pRes->ObserverInfo(pObserver, false, pRes, pObserver->Ep.session);
 
 	/* Delete/abort any pending notification interaction. */
 	res = CoAP_RemoveObserverInteractions(pObserver);
 	if (res != COAP_OK) {
-		return res;
+		goto FINISH;
+	}
+	res = CoAP_RemoveObserverFromResource(&pRes->pListObservers,
+											pObserver->socketHandle,
+											&pObserver->Ep,
+											pObserver->Token);
+	if (res == COAP_REMOVED) {
+		res = COAP_OK;
+	}
+	
+	/* When CoAP_RemoveObserverFromResource failing, there is fix for this -
+	just fall through, remove all interaction associated with the transport
+	and return error code. */
+	
+	/* Clear any remaining interactions associated with the transport. */
+	FINISH:
+	pIA = CoAP.pInteractions;
+	while (NULL != pIA)
+	{
+		CoAP_Interaction_t *nextPIA = pIA->next;
+		if (pIA->RemoteEp.transport_ctx == transport_ctx)
+		{
+			CoAP_DeleteInteraction(pIA);
+		}
+		pIA = nextPIA;
 	}
 
-	/* Remove observer from the resource. */
-	res = CoAP_RemoveObserverFromResource(&pRes->pListObservers,
-										  pObserver->socketHandle,
-										  &pObserver->Ep,
-										  pObserver->Token);
-	if (res != COAP_REMOVED) {
-		return res;
-	}
-	return COAP_OK;
+	return res;
 }
+
 
 static CoAP_Result_t _rom SendResp(CoAP_Interaction_t* pIA, CoAP_InteractionState_t nextIAState) {
 	CoAP_Result_t res = CoAP_SendMsg(pIA->pRespMsg, pIA->socketHandle, pIA->RemoteEp);
