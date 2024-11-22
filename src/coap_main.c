@@ -38,7 +38,7 @@ void hal_debug_array(const char *s, const uint8_t *array, size_t size) {
 }
 
 void _ram CoAP_HandleLowerLayerReceiverError(SocketHandle_t socketHandle, NetPacket_t* pPacket, 
-                                             CoAP_MessageCode_t responseCode) {
+                                             CoAP_MessageCode_t responseCode, const char* errorMsg) {
 	CoAP_Message_t Msg;
 	uint16_t optionsOfsset=0;
 	if(COAP_OK != CoAP_ParseDatagramUpToToken(pPacket->pData, pPacket->size, &Msg, &optionsOfsset))
@@ -46,7 +46,19 @@ void _ram CoAP_HandleLowerLayerReceiverError(SocketHandle_t socketHandle, NetPac
 		ERROR("CoAP_HandleLowerLayerError failed. Dropping packet.");
 		return;
 	}
-	CoAP_SendResponseWithoutPayload(responseCode, &Msg, socketHandle, pPacket->remoteEp, NULL);
+
+	if(CON == Msg.Type) {
+		Msg.Type = ACK;
+	} else {
+		Msg.Type = NON;
+		Msg.MessageID = CoAP_GetNextMid();
+	}
+	Msg.Code = responseCode;
+
+	if (NULL != errorMsg) {
+		CoAP_SetPayload(&Msg, (uint8_t*)errorMsg, strlen(errorMsg), false);
+	}
+	CoAP_SendMsg(&Msg, socketHandle, pPacket->remoteEp);
 }
 
 void _ram CoAP_HandleResponseWithEcho(SocketHandle_t socketHandle, NetPacket_t* pPacket, 
