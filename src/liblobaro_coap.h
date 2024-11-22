@@ -518,8 +518,9 @@ CoAP_Result_t CoAP_removeObserver(uint32_t transport_ctx);
  * @param socketHandle Socket to send the response throught.
  * @param pPacket      Offending request.
  * @param responseCode CoAP Response code to send to the 
+ * @param errorMsg     Error message as CoAP payload.
  */
-void CoAP_HandleLowerLayerReceiverError(SocketHandle_t socketHandle, NetPacket_t* pPacket, CoAP_MessageCode_t responseCode);
+void CoAP_HandleLowerLayerReceiverError(SocketHandle_t socketHandle, NetPacket_t* pPacket, CoAP_MessageCode_t responseCode, const char* errorMsg);
 
 /**
  * @brief Handle the response to require freshness from the client side by using ECHO option.
